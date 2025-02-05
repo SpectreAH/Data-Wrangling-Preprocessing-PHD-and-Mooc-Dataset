@@ -1,0 +1,235 @@
+---
+title: "PHD + MOOC DATA - Alexandre Huet"
+output: html_notebook
+---
+```{r}
+install.packages("plyr")
+install.packages("dplyr")
+install.packages("naniar")
+library(plyr)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+usage1 = read.csv("H:\\Downloads\\MOOC DATA\\usages.effec1.csv")
+usage1
+
+usage2 = read.csv("H:\\Downloads\\MOOC DATA\\usages.effec2.csv")
+usage2
+
+usage3 = read.csv("H:\\Downloads\\MOOC DATA\\usages.effec3.csv")
+usage3
+```
+
+
+```{r}
+effecquest1 = read.csv("H:\\Downloads\\MOOC DATA\\effec1.quest.compil.csv")
+effecquest1
+
+effecquest2 = read.csv("H:\\Downloads\\MOOC DATA\\effec2.quest.compil.csv", fileEncoding = "ISO-8859-1")
+effecquest2
+
+effecquest3 = read.csv("H:\\Downloads\\MOOC DATA\\effec3.quest.compil.csv")
+effecquest3
+```
+```{r}
+effecquest1 <- select(effecquest1, "Student_ID",)
+effecquest1
+
+effecquest2 <- select(effecquest2, "Country" , "Formation" , "Diploma" , "Student_ID" , "Gender")
+effecquest2
+
+effecquest3 <- select (effecquest3, "Country" , "Formation" , "Diploma" , "Student_ID" , "Gender")
+effecquest3
+```
+
+
+```{r}
+datamerge1 <- merge(usage1, effecquest1, by = "Student_ID" )
+datamerge2 <- merge(usage2, effecquest2, by = "Student_ID" )
+datamerge3 <- merge(usage3, effecquest3, by = "Student_ID" )
+datamerge1
+datamerge2
+datamerge3
+```
+
+
+```{r}
+datamerge1 <- datamerge1 %>% mutate(iteration = 1)
+datamerge2 <- datamerge2 %>% mutate(iteration = 2)
+datamerge3 <- datamerge3 %>% mutate(iteration = 3)
+```
+
+```{r}
+
+finaldata <- rbind.fill(datamerge1, datamerge2, datamerge3)
+finaldata
+```
+
+```{r}
+colnames(finaldata)
+```
+```{r}
+library(dplyr)
+
+finaldata <- finaldata %>%
+  
+  mutate(Category = ifelse(Exam.bin == 1 | Assignment.bin == 1, "Completer", NA)) %>%
+  
+  mutate(Category = ifelse(Exam.bin == 0 & (Assignment.bin == 1 |
+                                            Quizz.1.bin == 1 |
+                                            Quizz.2.bin == 1 |
+                                            Quizz.3.bin == 1 |
+                                            Quizz.4.bin == 1 |
+                                            Quizz.5.bin == 1), 
+                                            "Disengaging Learner", Category)) %>%
+  
+  mutate(Category = ifelse(Exam.bin == 0 & Assignment.bin == 0 &
+                                            Quizz.1.bin == 0 &
+                                            Quizz.2.bin == 0 &
+                                            Quizz.3.bin == 0 &
+                                            Quizz.4.bin == 0 &
+                                            Quizz.5.bin == 0 &
+                                            last.video > 10, 
+                                            "Auditing Learner", Category)) %>%
+  
+  mutate(Category = ifelse(Exam.bin == 0 & Assignment.bin == 0 &
+                                            Quizz.1.bin == 0 &
+                                            Quizz.2.bin == 0 &
+                                            Quizz.3.bin == 0 &
+                                            Quizz.4.bin == 0 &
+                                            Quizz.5.bin == 0 &
+                                            last.video <= 10, 
+                                            "Bystander", Category))
+
+print(finaldata)
+```
+```{r}
+data_summary <- finaldata %>%
+  group_by(iteration, Category) %>%
+  dplyr::summarize(count = n()) %>%
+  ungroup()
+
+#The Plot for percentage of student status by iteration
+ggplot(data_summary, aes(x = factor(iteration), y = count, fill = Category)) +
+  geom_bar(stat = "identity", position = "fill") +  
+  labs(title = "Percentage of Student Status by Iteration",
+       x = "Iteration",
+       y = "Percentage") +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::percent_format()) 
+```
+```{r echo=FALSE}
+install.packages("vcd")
+library(vcd)
+```
+
+```{r}
+
+mosaic(~ iteration + Category,
+       direction = c("v", "h"),
+       data = finaldata,
+       shade = TRUE,
+       main = "Mosaic Plot of Learner Categories by Iteration",
+       xlab = "Iteration",
+       ylab = "Category")
+```
+This is the start of the PHD dataset to identify errors in the data:
+
+```{r}
+Phd_data<-read.csv("H:\\Downloads\\PhD.dataset.csv",header=T,na.strings="")
+Phd_data
+```
+
+```{r}
+summary(Phd_data)
+str(Phd_data)
+colnames(Phd_data)
+```
+```{r echo=FALSE}
+library(naniar)
+library(tidyverse)
+library(dplyr)
+```
+
+```{r}
+percentage_miss <- sapply(Phd_data, function(x) sum(is.na(x)) / length(x) * 100)
+percentage_miss
+```
+
+```{r}
+vis_miss(Phd_data, warn_large_data = FALSE)
+```
+
+```{r}
+Phd_data_binary <- Phd_data %>%
+  mutate(across(everything(), ~ ifelse(is.na(.), 0, 1)))
+cor_matrix <- cor(Phd_data_binary)
+
+print(cor_matrix)
+```
+```{r echo=FALSE}
+library(corrgram)
+```
+
+```{r}
+gg_miss_upset(Phd_data)
+
+missing_data <- Phd_data %>%
+  is.na() %>%
+  as.data.frame()
+
+library(corrgram)
+
+corrgram(Phd_data,
+         order = TRUE,        
+         lower.panel = panel.shade,   
+         upper.panel = panel.pie,     
+         text.panel = panel.txt,      
+         main = "Corrgram of Missing Value Indicators")
+```
+
+```{r echo=FALSE}
+library(corrplot)
+library(dplyr)
+```
+
+```{r}
+na_indicator <- Phd_data %>%
+  mutate(across(everything(), ~ ifelse(is.na(.), 1, 0)))
+
+na_cor_matrix <- cor(na_indicator)
+
+corrplot(na_cor_matrix, 
+         method = "color",        
+         is.corr = FALSE,         
+         type = "lower",         
+         tl.col = "black",    
+         tl.srt = 45, #note: rotated text 45 deg so i can read the text better
+         tl.cex = 0.6, #note: to make text smaller
+         addCoef.col = NULL,
+         col = colorRampPalette(c("blue", "white", "red"))(200),
+         na.label = " ", #note: just adding this here to remove NA (all the ?)
+         title = "Heatmap of Missing Value Indicators",
+         mar = c(0, 0, 2, 0)) 
+
+```
+```{r}
+gg_miss_upset(Phd_data, 
+              nsets = 10,           
+              nintersects = 10)    
+```
+```{r}
+#Checking for any missing values percentage by column
+sapply(Phd_data, function(x) sum(is.na(x)) / length(x) * 100)
+ggplot(Phd_data, aes(x = Year)) + 
+  geom_bar() + 
+  theme_minimal() + 
+  labs(title = "The num of PHD Defenses by Year", x = "Year", y = "Count")
+```
+
+```{r}
+#making sure no data is past 2020
+Phd_data %>% filter(Year > 2020)
+```
